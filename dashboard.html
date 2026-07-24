@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pilotage client — Tableau de bord</title>
+<style>
+  :root{
+    --surface-0:#0d0d0d;
+    --surface-1:#1a1a19;
+    --surface-2:#232322;
+    --text-primary:#ffffff;
+    --text-secondary:#c3c2b7;
+    --text-muted:#898781;
+    --grid:#2c2c2a;
+    --baseline:#383835;
+    --border:rgba(255,255,255,0.10);
+
+    --blue:#3987e5;
+    --orange:#d95926;
+    --aqua:#199e70;
+    --yellow:#c98500;
+    --magenta:#d55181;
+    --green:#008300;
+    --violet:#9085e9;
+    --red:#e66767;
+
+    --good:#0ca30c;
+    --warning:#fab219;
+    --serious:#ec835a;
+    --critical:#d03b3b;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--surface-0);
+    color:var(--text-primary);
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    font-size:14px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{display:flex;min-height:100vh;}
+
+  .sidebar{
+    width:230px;
+    flex-shrink:0;
+    background:var(--surface-1);
+    border-right:1px solid var(--border);
+    padding:20px;
+    position:sticky;
+    top:0;
+    height:100vh;
+    display:flex;
+    flex-direction:column;
+  }
+  .sidebar .brand{padding-bottom:18px;border-bottom:1px solid var(--border);margin-bottom:18px;}
+  .sidebar .brand .name{font-weight:600;font-size:15px;letter-spacing:.2px;}
+  .sidebar .brand .sub{font-size:11px;color:var(--text-muted);margin-top:2px;}
+  .sidebar-note{
+    font-size:11.5px;color:var(--text-secondary);line-height:1.5;
+    background:var(--surface-2);border-radius:8px;padding:10px 12px;margin-bottom:16px;
+  }
+  .sidebar-foot{margin-top:auto;padding-top:14px;font-size:10.5px;color:var(--text-muted);border-top:1px solid var(--border);}
+
+  .field{margin-bottom:0;}
+  .field label{
+    display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--text-muted);margin-bottom:6px;
+  }
+  select{
+    background:var(--surface-2);color:var(--text-primary);border:1px solid var(--border);
+    border-radius:7px;padding:9px 10px;font-size:13.5px;font-family:inherit;cursor:pointer;
+    appearance:none;-webkit-appearance:none;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0 L5 6 L10 0' fill='%23898781'/></svg>");
+    background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;
+    min-width:190px;
+  }
+  select:hover{border-color:rgba(255,255,255,0.22);}
+  select:focus{outline:none;border-color:var(--blue);}
+  select option{background:var(--surface-2);color:var(--text-primary);}
+
+  button.btn{
+    background:var(--blue);color:#fff;border:none;border-radius:7px;padding:9px 16px;
+    font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;
+  }
+  button.btn:hover{background:#2f74c4;}
+  button.btn-ghost{
+    background:var(--surface-2);color:var(--text-secondary);border:1px solid var(--border);
+    border-radius:6px;padding:5px 11px;font-size:11.5px;cursor:pointer;font-family:inherit;
+  }
+  button.btn-ghost:hover{color:var(--text-primary);border-color:rgba(255,255,255,0.22);}
+
+  .content{flex:1;padding:26px 32px 60px 32px;max-width:1440px;}
+  .topbar{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:18px;flex-wrap:wrap;gap:8px;}
+  .topbar h1{font-size:20px;margin:0;font-weight:600;}
+  .topbar .meta{font-size:12px;color:var(--text-muted);}
+
+  .filterbar{
+    display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;
+    background:var(--surface-1);border:1px solid var(--border);border-radius:10px;
+    padding:14px 18px;margin-bottom:24px;
+  }
+  .filterbar .spacer{flex:1;}
+
+  .section-title{
+    font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);
+    margin:30px 0 12px 0;display:flex;align-items:center;gap:10px;
+  }
+  .section-title::after{content:"";flex:1;height:1px;background:var(--grid);}
+  .section-title:first-of-type{margin-top:0;}
+  .section-title .stt-export{margin-left:auto;}
+
+  .kpi-grid{display:grid;gap:14px;}
+  .kpi-grid.primary{grid-template-columns:repeat(4,1fr);}
+  .kpi-grid.secondary{grid-template-columns:repeat(6,1fr);}
+  @media (max-width:1100px){
+    .kpi-grid.primary{grid-template-columns:repeat(2,1fr);}
+    .kpi-grid.secondary{grid-template-columns:repeat(3,1fr);}
+  }
+  .kpi-card{
+    background:var(--surface-1);border:1px solid var(--border);border-radius:10px;
+    padding:16px 18px;position:relative;overflow:hidden;
+  }
+  .kpi-card .label{font-size:10.8px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:8px;}
+  .kpi-card .value{font-size:28px;font-weight:700;line-height:1.05;font-variant-numeric:tabular-nums;}
+  .kpi-card.primary .value{font-size:32px;}
+  .kpi-card .sub{font-size:11.5px;color:var(--text-secondary);margin-top:6px;}
+  .kpi-card .accent-bar{position:absolute;left:0;top:0;bottom:0;width:3px;}
+  .status-good{color:var(--good);}
+  .status-warning{color:var(--warning);}
+  .status-critical{color:var(--critical);}
+  .bar-good{background:var(--good);}
+  .bar-warning{background:var(--warning);}
+  .bar-critical{background:var(--critical);}
+  .bar-neutral{background:var(--blue);}
+
+  .panel{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:16px;}
+  .panel h3{margin:0 0 4px 0;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .panel .panel-sub{font-size:11.5px;color:var(--text-muted);margin-bottom:14px;}
+  .grid-2{display:grid;grid-template-columns:1.1fr 1fr;gap:16px;align-items:stretch;}
+  .grid-2.reverse{grid-template-columns:1fr 1.1fr;}
+  @media (max-width:1000px){.grid-2, .grid-2.reverse{grid-template-columns:1fr;}}
+
+  .toolbar{display:flex;align-items:flex-end;gap:14px;margin-bottom:14px;flex-wrap:wrap;}
+  .toolbar .field select{min-width:220px;}
+  .focus-panel{
+    display:none;background:var(--surface-2);border-radius:8px;padding:10px 14px;margin-bottom:14px;
+    font-size:12.5px;color:var(--text-secondary);gap:18px;flex-wrap:wrap;
+  }
+  .focus-panel.show{display:flex;}
+  .focus-panel b{color:var(--text-primary);}
+
+  table{width:100%;border-collapse:collapse;font-size:12.6px;}
+  table.tabular td, table.tabular th{font-variant-numeric:tabular-nums;}
+  th{
+    text-align:left;color:var(--text-muted);font-weight:500;font-size:11px;text-transform:uppercase;
+    letter-spacing:.04em;padding:7px 10px;border-bottom:1px solid var(--grid);
+    position:sticky;top:0;background:var(--surface-1);
+  }
+  td{padding:7px 10px;border-bottom:1px solid var(--grid);color:var(--text-secondary);}
+  tr:last-child td{border-bottom:none;}
+  td.num, th.num{text-align:right;}
+  td.strong{color:var(--text-primary);font-weight:600;}
+  .table-wrap{max-height:360px;overflow:auto;border-radius:6px;}
+  tr.hl td{background:rgba(57,135,229,0.18);}
+  .pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;}
+  .pill.ouvert{background:rgba(250,178,25,0.15);color:var(--warning);}
+  .pill.cloture{background:rgba(12,163,12,0.15);color:var(--good);}
+  .heat-cell{text-align:center;border-radius:4px;font-weight:600;color:#fff;}
+
+  .chart-box{position:relative;height:260px;}
+  .chart-box.tall{height:300px;}
+  .svg-chart{width:100%;height:100%;}
+  .svg-chart svg{overflow:visible;}
+  .svg-legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:8px;font-size:11.5px;color:var(--text-secondary);}
+  .svg-legend .li{display:flex;align-items:center;gap:6px;}
+  .svg-legend .sw{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+  .svg-legend .sw.line{border-radius:0;height:2px;width:14px;}
+  .svg-legend .sw.dash{border-radius:0;height:0;width:14px;border-top:2px dashed;}
+
+  .chart-tooltip{
+    position:fixed;pointer-events:none;z-index:50;
+    background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;
+    font-size:11.5px;color:var(--text-primary);box-shadow:0 4px 14px rgba(0,0,0,.4);opacity:0;
+    transition:opacity .08s;white-space:nowrap;
+  }
+  .chart-tooltip.show{opacity:1;}
+
+  .quality-badges{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+  @media (max-width:700px){.quality-badges{grid-template-columns:1fr;}}
+  .quality-badge{
+    background:var(--surface-2);border-radius:8px;padding:14px 16px;
+    display:flex;align-items:center;justify-content:space-between;cursor:pointer;
+    border:1px solid transparent;transition:border-color .12s;
+  }
+  .quality-badge:hover{border-color:var(--border);}
+  .quality-badge .qb-label{font-size:12.5px;color:var(--text-secondary);}
+  .quality-badge .qb-value{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;}
+  .quality-badge .qb-value.warn{color:var(--warning);}
+  .anomaly-detail{display:none;margin-top:10px;}
+  .anomaly-detail.open{display:block;}
+  .toggle-hint{font-size:10.5px;color:var(--text-muted);margin-top:2px;}
+
+  .drilldown{display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--grid);}
+  .drilldown.open{display:block;}
+  .drilldown-title{font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:8px;}
+  button.btn-ghost:disabled{opacity:.4;cursor:not-allowed;}
+  .mark-selectable{cursor:pointer;}
+  .mark-selected{stroke:#fff;stroke-width:2;}
+  td.heat-cell.mark-selected{outline:2px solid #fff;outline-offset:-2px;}
+  .drilldown-empty{font-size:12px;color:var(--text-muted);font-style:italic;}
+  .data-status{padding:14px 18px;border-radius:10px;background:var(--surface-1);border:1px solid var(--border);
+    color:var(--text-secondary);font-size:13px;margin:10px 0 16px;}
+  .data-error{color:var(--critical);line-height:1.6;}
+  .data-error code{background:var(--surface-2);padding:1px 6px;border-radius:4px;}
+
+  .legend-note{
+    font-size:11.5px;color:var(--text-muted);line-height:1.6;padding:14px 18px;border-radius:10px;
+    background:var(--surface-1);border:1px solid var(--border);margin-top:8px;
+  }
+  .legend-note b{color:var(--text-secondary);}
+  .dot-legend{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle;}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="sidebar">
+    <div class="brand">
+      <div class="name">Pilotage client</div>
+      <div class="sub">Tableau de bord — v3</div>
+    </div>
+    <div class="sidebar-note">
+      Les filtres RPL et Zone sont en haut de l'écran. Chaque tableau peut être exporté en CSV (bouton
+      "Exporter") avec les données déjà filtrées.
+    </div>
+    <div class="sidebar-foot">Données de démonstration (zones fictives)<br>Généré le <span id="foot-date"></span></div>
+  </nav>
+
+  <main class="content">
+    <div class="topbar">
+      <h1>Pilotage client</h1>
+      <div class="meta" id="tab-sub"></div>
+    </div>
+
+    <div id="data-status" class="data-status">Chargement des données…</div>
+
+    <div class="filterbar">
+      <div class="field">
+        <label for="select-rpl">RPL</label>
+        <select id="select-rpl"></select>
+      </div>
+      <div class="field">
+        <label for="select-zone">Zone</label>
+        <select id="select-zone"></select>
+      </div>
+      <div class="spacer"></div>
+      <button class="btn" id="btn-export-all">⬇ Exporter les dossiers filtrés (CSV)</button>
+    </div>
+
+    <div class="section-title">Chiffres clés</div>
+    <div class="kpi-grid primary" id="kpi-primary"></div>
+
+    <div class="section-title">Autres indicateurs</div>
+    <div class="kpi-grid secondary" id="kpi-secondary"></div>
+
+    <div class="section-title">Qualité des données</div>
+    <div class="panel">
+      <h3>&nbsp;<button class="btn-ghost" id="export-anomaly" disabled>Exporter la sélection</button></h3>
+      <div class="quality-badges" id="quality-badges"></div>
+      <div class="anomaly-detail" id="anomaly-detail"></div>
+    </div>
+
+    <div class="section-title">Répartition des dossiers</div>
+    <div class="grid-2">
+      <div class="panel">
+        <h3>Par tranche d'ancienneté <button class="btn-ghost" id="export-tranche" disabled>Exporter la sélection</button></h3>
+        <div class="panel-sub">Cliquez une barre pour voir et exporter les dossiers de cette tranche</div>
+        <div class="chart-box"><div class="svg-chart" id="chart-tranche"></div></div>
+        <table class="tabular" style="margin-top:10px;">
+          <thead><tr><th>Tranche</th><th class="num">Nombre</th><th class="num">%</th></tr></thead>
+          <tbody id="table-tranche"></tbody>
+        </table>
+        <div class="drilldown" id="drilldown-tranche"></div>
+      </div>
+      <div class="panel">
+        <h3>Retard / délais <button class="btn-ghost" id="export-retard" disabled>Exporter la sélection</button></h3>
+        <div class="panel-sub">Cliquez un segment pour voir et exporter les dossiers correspondants (tous statuts)</div>
+        <div class="chart-box"><div class="svg-chart" id="chart-retard"></div></div>
+        <table class="tabular" style="margin-top:10px;">
+          <thead><tr><th>Statut</th><th class="num">Nombre</th><th class="num">%</th></tr></thead>
+          <tbody id="table-retard"></tbody>
+        </table>
+        <div class="drilldown" id="drilldown-retard"></div>
+      </div>
+    </div>
+
+    <div class="section-title">Nombre de dossiers par RPL</div>
+    <div class="panel">
+      <h3>Toutes les RPL <button class="btn-ghost" id="export-parrpl" disabled>Exporter la sélection</button></h3>
+      <div class="panel-sub">Ignore le filtre RPL ci-dessus (respecte le filtre Zone) — cliquez une barre pour voir et exporter les dossiers de ce RPL</div>
+      <div class="chart-box"><div class="svg-chart" id="chart-par-rpl"></div></div>
+      <div class="table-wrap" style="margin-top:10px;">
+        <table class="tabular">
+          <thead><tr><th>RPL</th><th class="num">Nombre de dossiers</th></tr></thead>
+          <tbody id="table-par-rpl"></tbody>
+        </table>
+      </div>
+      <div class="drilldown" id="drilldown-par-rpl"></div>
+    </div>
+
+    <div id="croisement-section">
+      <div class="section-title">Croisement RPL × ancienneté</div>
+      <div class="panel">
+        <h3>Nombre de dossiers <button class="btn-ghost" id="export-croisement" disabled>Exporter la sélection</button></h3>
+        <div class="panel-sub">Visible uniquement quand "Toutes les RPL" est sélectionné · cliquez une case pour voir et exporter les dossiers du croisement</div>
+        <div class="table-wrap"><table class="tabular" id="table-croisement"></table></div>
+        <div class="drilldown" id="drilldown-croisement"></div>
+      </div>
+    </div>
+
+    <div class="section-title">Tendance — historique par semaine</div>
+    <div class="panel">
+      <h3>Dossiers hors délai (&gt;120 jours) vs objectif</h3>
+      <div class="panel-sub">Trait plein = % réel du stock ouvert avec plus de 120 jours d'ancienneté · pointillés bleus = objectif (10%)</div>
+      <div class="chart-box tall"><div class="svg-chart" id="chart-hors-delai"></div></div>
+    </div>
+    <div class="grid-2">
+      <div class="panel">
+        <h3>Stock cumulé</h3>
+        <div class="chart-box"><div class="svg-chart" id="chart-stock-cumule"></div></div>
+      </div>
+      <div class="panel">
+        <h3>Entrants / Sortants</h3>
+        <div class="chart-box"><div class="svg-chart" id="chart-flux"></div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Détail par semaine <button class="btn-ghost" id="export-semaine" disabled>Exporter la sélection</button></h3>
+      <div class="panel-sub">Choisissez une semaine pour voir les dossiers entrants/sortants de cette semaine précise — s'étendra automatiquement à chaque nouvel export hebdomadaire</div>
+      <div class="toolbar">
+        <div class="field">
+          <label for="select-semaine">Choisir une semaine</label>
+          <select id="select-semaine"><option value="">— Choisir —</option></select>
+        </div>
+      </div>
+      <div class="focus-panel" id="focus-semaine"></div>
+      <div class="drilldown" id="drilldown-semaine"></div>
+    </div>
+
+    <div class="section-title">Performance équipe</div>
+    <div class="panel">
+      <h3>Dossiers en cours vs en retard, par responsable <button class="btn-ghost" id="export-perf" disabled>Exporter la sélection</button></h3>
+      <div class="panel-sub">Cliquez une barre pour voir et exporter les dossiers de ce responsable</div>
+      <div class="chart-box tall"><div class="svg-chart" id="chart-perf"></div></div>
+      <div class="drilldown" id="drilldown-perf"></div>
+    </div>
+
+    <div class="section-title">Légende &amp; méthode</div>
+    <div class="legend-note">
+      <span class="dot-legend" style="background:var(--good)"></span><b>Vert</b> = objectif atteint &nbsp;·&nbsp;
+      <span class="dot-legend" style="background:var(--warning)"></span><b>Jaune</b> = à surveiller &nbsp;·&nbsp;
+      <span class="dot-legend" style="background:var(--critical)"></span><b>Rouge</b> = critique, action requise.<br>
+      « Stock » = dossiers au statut Ouvert à date. « Dossiers en retard » (chiffres clés du haut) = dossiers du
+      stock ayant dépassé leur date d'échéance. « Dossiers hors délai » = dossiers du stock ayant plus de 120
+      jours d'ancienneté (indépendamment de la date d'échéance) — objectif : 10% maximum du stock, c'est cette
+      définition qui pilote le graphique de tendance ci-dessus. Le tableau « Retard / délais » de la section
+      Répartition conserve la logique historique du fichier Excel (tous statuts, y compris les dossiers déjà
+      clôturés en retard) — trois mesures différentes, à ne pas confondre.<br>
+      « Nombre de dossiers par RPL » et le Croisement RPL × ancienneté ignorent volontairement le filtre RPL
+      (ils servent à comparer les RPL entre eux) mais respectent le filtre Zone.<br>
+      Les zones (04, 05, 06, 07, 13, 26, 30, 83, 84) sont des données fictives de démonstration, en attendant
+      une vraie colonne Zone dans l'export source.<br>
+      Données de démonstration — à remplacer par un export réel dès disponibilité.
+    </div>
+  </main>
+</div>
+
+<div class="chart-tooltip" id="chart-tooltip"></div>
+
+<script>
+let DATA = null;
+
+async function loadData(){
+  const statusEl = document.getElementById('data-status');
+  try {
+    const res = await fetch('data.json', { cache: 'no-store' });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    DATA = await res.json();
+    if(statusEl) statusEl.remove();
+    boot();
+  } catch(err) {
+    console.error('Chargement de data.json impossible :', err);
+    if(statusEl){
+      statusEl.innerHTML = `<div class="data-error">
+        <b>Impossible de charger les données (data.json).</b><br>
+        Vérifie que ce fichier est bien hébergé sur un vrai serveur web (pas ouvert en double-clic depuis
+        ton disque), et que <code>data.json</code> se trouve dans le même dossier que ce fichier HTML.<br>
+        Détail technique : ${err.message}
+      </div>`;
+    }
+  }
+}
+const TRANCHES = ['0-28 jours','29-60 jours','61-90 jours','91-120 jours','120+ jours'];
+
+let filter = { rpl: 'all', zone: 'all' };
+let selectedWeek = '';
+let anomalyOpen = null;
+let selectedTranche = null;
+let selectedRetard = null;
+let selectedRpl = null;
+let selectedCroisement = null;
+let selectedResponsable = null;
+
+function resetSelections(){
+  selectedWeek = '';
+  anomalyOpen = null;
+  selectedTranche = null;
+  selectedRetard = null;
+  selectedRpl = null;
+  selectedCroisement = null;
+  selectedResponsable = null;
+}
+
+function css(varName){ return getComputedStyle(document.documentElement).getPropertyValue(varName).trim(); }
+function fmtInt(n){ if(n===null||n===undefined) return '—'; return Math.round(n).toLocaleString('fr-FR'); }
+function fmtPct(n, decimals=0){ if(n===null||n===undefined) return '—'; return (n*100).toFixed(decimals)+'%'; }
+function fmtNum(n, decimals=1){ if(n===null||n===undefined) return '—'; return n.toFixed(decimals).replace('.',','); }
+
+function statusForRate(value, objectif, tolerance){
+  if(value===null) return '';
+  if(value >= objectif) return 'good';
+  if(value >= objectif - tolerance) return 'warning';
+  return 'critical';
+}
+function statusForHigh(pct, objectif, seuil){
+  if(pct===null) return '';
+  if(pct <= objectif) return 'good';
+  if(pct <= seuil) return 'warning';
+  return 'critical';
+}
+
+/* ============================================================
+   DATE HELPERS (string-safe ISO comparisons, UTC math)
+   ============================================================ */
+function addDaysISO(iso, n){
+  const d = new Date(iso+'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate()+n);
+  return d.toISOString().slice(0,10);
+}
+function daysDiff(isoA, isoB){
+  const a = new Date(isoA+'T00:00:00Z').getTime();
+  const b = new Date(isoB+'T00:00:00Z').getTime();
+  return Math.round((b-a)/86400000);
+}
+
+/* ============================================================
+   FILTERING
+   ============================================================ */
+function filteredDossiers(){
+  return DATA.dossiers.filter(d =>
+    (filter.rpl==='all' || d.activite===filter.rpl) &&
+    (filter.zone==='all' || d.zone===filter.zone)
+  );
+}
+function zoneOnlyDossiers(){
+  return DATA.dossiers.filter(d => (filter.zone==='all' || d.zone===filter.zone));
+}
+
+/* ============================================================
+   AGGREGATION ENGINE
+   ============================================================ */
+function computeKpis(list){
+  const ouverts = list.filter(d=>d.statut==='Ouvert');
+  const clotures = list.filter(d=>d.statut==='Clôturé');
+  const stock = ouverts.length;
+  const enRetardStock = ouverts.filter(d=>d.en_retard==='Oui').length;
+  const pct = stock ? enRetardStock/stock : 0;
+  const sansCommande = list.filter(d=>d.sans_commande==='Oui').length;
+  const horsDelai = ouverts.filter(d=>d.jours_ecoules>120).length;
+  const tauxRespect = clotures.length ? clotures.filter(d=>d.en_retard==='Non').length/clotures.length : null;
+  const delaiMoyen = clotures.length ? clotures.reduce((s,d)=>s+d.jours_ecoules,0)/clotures.length : null;
+  const ancienneteMoy = ouverts.length ? ouverts.reduce((s,d)=>s+d.jours_ecoules,0)/ouverts.length : null;
+  const critiques = ouverts.filter(d=>d.jours_ecoules>120 && d.en_retard==='Oui').length;
+  return {stock, enRetardStock, pct, sansCommande, horsDelai, tauxRespect, delaiMoyen, ancienneteMoy, critiques};
+}
+
+function computeTranche(list){
+  const total = list.length;
+  return TRANCHES.map(tr=>{
+    const n = list.filter(d=>d.tranche===tr).length;
+    return {tranche:tr, nombre:n, pct: total? n/total : 0};
+  });
+}
+
+function computeRetard(list){
+  const enRetard = list.filter(d=>d.en_retard==='Oui').length;
+  return {dans_delais: list.length-enRetard, en_retard: enRetard};
+}
+
+function computeCroisement(list){
+  const rpls = [...new Set(list.map(d=>d.activite))].sort();
+  return rpls.map(rpl=>{
+    const sub = list.filter(d=>d.activite===rpl);
+    const valeurs = {};
+    TRANCHES.forEach(tr=> valeurs[tr] = sub.filter(d=>d.tranche===tr).length);
+    return {activite:rpl, valeurs};
+  });
+}
+
+function computeParRpl(list){
+  const rpls = [...new Set(DATA.dossiers.map(d=>d.activite))].sort();
+  let rows = rpls.map(rpl=>({activite:rpl, nombre:list.filter(d=>d.activite===rpl).length}));
+  rows.sort((a,b)=>b.nombre-a.nombre);
+  return rows;
+}
+
+function computePerformance(list){
+  const resps = [...new Set(list.map(d=>d.responsable).filter(Boolean))];
+  let rows = resps.map(r=>{
+    const ouverts = list.filter(d=>d.responsable===r && d.statut==='Ouvert');
+    const enRetard = ouverts.filter(d=>d.en_retard==='Oui').length;
+    const anciennete = ouverts.length ? ouverts.reduce((s,d)=>s+d.jours_ecoules,0)/ouverts.length : 0;
+    return {responsable:r, dossiers:ouverts.length, en_retard:enRetard,
+      pct_en_retard: ouverts.length? enRetard/ouverts.length : 0, anciennete_moy:anciennete};
+  }).filter(r=>r.dossiers>0);
+  rows.sort((a,b)=>b.dossiers-a.dossiers);
+  rows.forEach((r,i)=>r.rang=i+1);
+  return rows;
+}
+
+function computeWeekly(list){
+  let stockCum = 0;
+  return DATA.weeks.map(w=>{
+    const cutoff = addDaysISO(w.start,7);
+    const entrants = list.filter(d=>d.date_ouverture>=w.start && d.date_ouverture<cutoff).length;
+    const sortants = list.filter(d=>d.date_cloture && d.date_cloture>=w.start && d.date_cloture<cutoff).length;
+    const solde = entrants - sortants;
+    stockCum += solde;
+    const openAtCutoff = list.filter(d=> d.date_ouverture<cutoff && (!d.date_cloture || d.date_cloture>=cutoff));
+    let pctHorsDelai = null;
+    if(openAtCutoff.length>0){
+      const nb120 = openAtCutoff.filter(d=>daysDiff(d.date_ouverture,cutoff)>120).length;
+      pctHorsDelai = nb120/openAtCutoff.length;
+    }
+    return {semaine:w.label, entrants, sortants, solde, stock_cumule:stockCum, pct_hors_delai:pctHorsDelai, stock_ouvert:openAtCutoff.length};
+  });
+}
+
+/* ============================================================
+   CSV EXPORT
+   ============================================================ */
+function toCSV(rows, headers, headerLabels){
+  const esc = v => `"${String(v===null||v===undefined?'':v).replace(/"/g,'""')}"`;
+  const lines = [(headerLabels||headers).map(esc).join(';')];
+  rows.forEach(r=> lines.push(headers.map(h=>esc(typeof r[h]==='number' ? r[h].toString().replace('.',',') : r[h])).join(';')));
+  return lines.join('\r\n');
+}
+function downloadCSV(filename, csv){
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ============================================================
+   GENERIC DROLL-DOWN: raw-dossier detail + scoped CSV export.
+   Every "Exporter" button in the app goes through this — it only
+   ever exports the exact list of dossiers behind the current
+   selection, never an aggregate/summary table.
+   ============================================================ */
+const DOSSIER_HEADERS = ['dossier','client','activite','zone','responsable','date_ouverture','date_echeance','statut','date_cloture','jours_ecoules','tranche','en_retard','jours_retard','num_commande','sans_commande'];
+const DOSSIER_LABELS  = ['N° Dossier','Client','RPL','Zone','Responsable','Date ouverture','Date échéance','Statut','Date clôture','Jours écoulés','Tranche','En retard','Jours de retard','N° Commande','Sans commande client'];
+
+function renderDrilldown(containerId, exportBtnId, list, filenameBase, title, extraCol){
+  const box = document.getElementById(containerId);
+  const btn = exportBtnId ? document.getElementById(exportBtnId) : null;
+
+  if(!list){
+    box.classList.remove('open');
+    box.innerHTML = '';
+    if(btn) btn.disabled = true;
+    return;
+  }
+
+  box.classList.add('open');
+  if(btn) btn.disabled = false;
+
+  let cols = DOSSIER_HEADERS, colLabels = DOSSIER_LABELS;
+  let rows = list;
+  if(extraCol){
+    cols = [...DOSSIER_HEADERS, extraCol.key];
+    colLabels = [...DOSSIER_LABELS, extraCol.label];
+    rows = list.map(d=>Object.assign({}, d, {[extraCol.key]: extraCol.fn(d)}));
+  }
+
+  if(rows.length === 0){
+    box.innerHTML = `<div class="drilldown-title">${title}</div><div class="drilldown-empty">Aucun dossier pour cette sélection.</div>`;
+    if(btn) btn.onclick = ()=> downloadCSV(`${filenameBase}.csv`, toCSV(rows, cols, colLabels));
+    return;
+  }
+
+  box.innerHTML = `
+    <div class="drilldown-title">${title} — ${fmtInt(rows.length)} dossier${rows.length>1?'s':''}</div>
+    <div class="table-wrap"><table class="tabular">
+      <thead><tr>${colLabels.map(l=>`<th>${l}</th>`).join('')}</tr></thead>
+      <tbody>${rows.map(r=>`<tr>
+        <td class="strong">${r.dossier}</td><td>${r.client}</td><td>${r.activite}</td><td>${r.zone}</td><td>${r.responsable||'—'}</td>
+        <td>${r.date_ouverture}</td><td>${r.date_echeance}</td>
+        <td><span class="pill ${r.statut==='Ouvert'?'ouvert':'cloture'}">${r.statut}</span></td>
+        <td>${r.date_cloture||'—'}</td><td class="num">${r.jours_ecoules}</td><td>${r.tranche}</td>
+        <td>${r.en_retard}</td><td class="num">${r.jours_retard}</td><td>${r.num_commande||'—'}</td><td>${r.sans_commande}</td>
+        ${extraCol? `<td>${r[extraCol.key]}</td>` : ''}
+      </tr>`).join('')}</tbody>
+    </table></div>`;
+
+  if(btn) btn.onclick = ()=> downloadCSV(`${filenameBase}.csv`, toCSV(rows, cols, colLabels));
+}
+
+/* ============================================================
+   MINI SVG CHART LIBRARY (no external dependency)
+   ============================================================ */
+const NS = 'http://www.w3.org/2000/svg';
+function svgNode(tag, attrs){
+  const el = document.createElementNS(NS, tag);
+  for(const k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
+}
+const tooltipEl = document.getElementById('chart-tooltip');
+function showTooltip(evt, html){
+  tooltipEl.innerHTML = html;
+  tooltipEl.classList.add('show');
+  const x = evt.clientX, y = evt.clientY;
+  const rect = tooltipEl.getBoundingClientRect();
+  let left = x + 14, top = y + 14;
+  if(left + rect.width > window.innerWidth - 10) left = x - rect.width - 14;
+  if(top + rect.height > window.innerHeight - 10) top = y - rect.height - 14;
+  tooltipEl.style.left = left + 'px';
+  tooltipEl.style.top = top + 'px';
+}
+function hideTooltip(){ tooltipEl.classList.remove('show'); }
+
+function measure(id){
+  const el = document.getElementById(id);
+  const r = el.getBoundingClientRect();
+  return { el, w: Math.max(r.width, 280), h: Math.max(r.height, 180) };
+}
+
+function niceMax(v){
+  if(v <= 0) return 1;
+  const pow = Math.pow(10, Math.floor(Math.log10(v)));
+  const n = v / pow;
+  let step;
+  if(n <= 1) step = 1; else if(n<=2) step = 2; else if(n<=5) step = 5; else step = 10;
+  return step * pow;
+}
+
+function drawBarChart(id, {labels, series, yFormat, onSelect, selected}){
+  const {el, w, h} = measure(id);
+  el.innerHTML = '';
+  const margin = {top:14, right:10, bottom:34, left:40};
+  const pw = w - margin.left - margin.right;
+  const ph = h - margin.top - margin.bottom;
+  const maxRaw = Math.max(...series.flatMap(s=>s.data), 0);
+  const max = niceMax(maxRaw * 1.15);
+  const svg = svgNode('svg', {width:w, height:h, viewBox:`0 0 ${w} ${h}`});
+
+  const ticks = 4;
+  for(let i=0;i<=ticks;i++){
+    const val = max * i/ticks;
+    const y = margin.top + ph - (val/max)*ph;
+    svg.appendChild(svgNode('line', {x1:margin.left, x2:w-margin.right, y1:y, y2:y, stroke:css('--grid'), 'stroke-width':1}));
+    const t = svgNode('text', {x:margin.left-8, y:y+4, 'text-anchor':'end', 'font-size':10.5, fill:css('--text-muted')});
+    t.textContent = yFormat ? yFormat(val) : Math.round(val);
+    svg.appendChild(t);
+  }
+
+  const bandW = pw / labels.length;
+  const groupPad = bandW * 0.18;
+  const barGap = 3;
+  const usableW = bandW - groupPad*2;
+  const barW = Math.max((usableW - barGap*(series.length-1)) / series.length, 1);
+  const labelEvery = Math.max(1, Math.ceil(labels.length / 9));
+
+  labels.forEach((label, li)=>{
+    series.forEach((s, si)=>{
+      const val = s.data[li] || 0;
+      const bh = (val/max)*ph;
+      const x = margin.left + li*bandW + groupPad + si*(barW+barGap);
+      const y = margin.top + ph - bh;
+      const isSelected = onSelect && selected===label;
+      const rect = svgNode('rect', {x, y, width:barW, height:Math.max(bh,0), rx:Math.min(3,barW/2), fill:s.color});
+      rect.setAttribute('class', onSelect ? ('mark-selectable'+(isSelected?' mark-selected':'')) : '');
+      rect.addEventListener('mousemove', e=>showTooltip(e, `<b>${label}</b><br>${s.name}: ${yFormat?yFormat(val):fmtInt(val)}`));
+      rect.addEventListener('mouseleave', hideTooltip);
+      if(onSelect) rect.addEventListener('click', ()=>onSelect(label));
+      svg.appendChild(rect);
+    });
+    if(li % labelEvery === 0 || li === labels.length-1){
+      const lx = margin.left + li*bandW + bandW/2;
+      const t = svgNode('text', {x:lx, y:h-margin.bottom+16, 'text-anchor':'middle', 'font-size':10, fill:css('--text-muted')});
+      const maxChars = Math.max(9, Math.floor(bandW/6.2));
+      t.textContent = label.length > maxChars ? label.slice(0,maxChars-1)+'…' : label;
+      svg.appendChild(t);
+    }
+  });
+
+  svg.appendChild(svgNode('line', {x1:margin.left, x2:w-margin.right, y1:margin.top+ph, y2:margin.top+ph, stroke:css('--baseline'), 'stroke-width':1}));
+  el.appendChild(svg);
+  if(series.length > 1){
+    renderLegend(el, series.map(s=>({label:s.name, color:s.color, type:'sw'})));
+  }
+}
+
+function drawHBarChart(id, {labels, series, onSelect, selected}){
+  const {el, w, h} = measure(id);
+  el.innerHTML = '';
+  const margin = {top:10, right:34, bottom:10, left:96};
+  const pw = w - margin.left - margin.right;
+  const ph = h - margin.top - margin.bottom;
+  const maxRaw = Math.max(...series.flatMap(s=>s.data), 0);
+  const max = niceMax(maxRaw * 1.15);
+  const svg = svgNode('svg', {width:w, height:h, viewBox:`0 0 ${w} ${h}`});
+
+  const bandH = ph / Math.max(labels.length,1);
+  const groupPad = bandH * 0.18;
+  const barGap = 3;
+  const usableH = bandH - groupPad*2;
+  const barH = (usableH - barGap*(series.length-1)) / series.length;
+
+  labels.forEach((label, li)=>{
+    const t = svgNode('text', {x:margin.left-8, y:margin.top+li*bandH+bandH/2+4, 'text-anchor':'end', 'font-size':11, fill:css('--text-secondary')});
+    t.textContent = label;
+    svg.appendChild(t);
+    series.forEach((s, si)=>{
+      const val = s.data[li] || 0;
+      const bw = (val/max)*pw;
+      const y = margin.top + li*bandH + groupPad + si*(barH+barGap);
+      const x = margin.left;
+      const isSelected = onSelect && selected===label;
+      const rect = svgNode('rect', {x, y, width:Math.max(bw,0), height:barH, rx:3, fill:s.color});
+      rect.setAttribute('class', onSelect ? ('mark-selectable'+(isSelected?' mark-selected':'')) : '');
+      rect.addEventListener('mousemove', e=>showTooltip(e, `<b>${label}</b><br>${s.name}: ${fmtInt(val)}`));
+      rect.addEventListener('mouseleave', hideTooltip);
+      if(onSelect) rect.addEventListener('click', ()=>onSelect(label));
+      svg.appendChild(rect);
+    });
+  });
+  svg.appendChild(svgNode('line', {x1:margin.left, x2:margin.left, y1:margin.top, y2:h-margin.bottom, stroke:css('--baseline'), 'stroke-width':1}));
+  el.appendChild(svg);
+  renderLegend(el, series.map(s=>({label:s.name, color:s.color, type:'sw'})));
+}
+
+function drawLineChart(id, {labels, series, yFormat, yMax, yMin}){
+  const {el, w, h} = measure(id);
+  el.innerHTML = '';
+  const margin = {top:14, right:16, bottom:30, left:44};
+  const pw = w - margin.left - margin.right;
+  const ph = h - margin.top - margin.bottom;
+  const allVals = series.flatMap(s=>s.data.filter(v=>v!==null && v!==undefined));
+  const max = yMax !== undefined ? yMax : niceMax(Math.max(...allVals,0) * 1.15);
+  const min = yMin !== undefined ? yMin : Math.min(0, Math.min(...allVals,0));
+  const range = max - min || 1;
+  const svg = svgNode('svg', {width:w, height:h, viewBox:`0 0 ${w} ${h}`});
+
+  const ticks = 4;
+  for(let i=0;i<=ticks;i++){
+    const val = min + range*i/ticks;
+    const y = margin.top + ph - ((val-min)/range)*ph;
+    svg.appendChild(svgNode('line', {x1:margin.left, x2:w-margin.right, y1:y, y2:y, stroke:css('--grid'), 'stroke-width':1}));
+    const t = svgNode('text', {x:margin.left-8, y:y+4, 'text-anchor':'end', 'font-size':10.5, fill:css('--text-muted')});
+    t.textContent = yFormat ? yFormat(val) : Math.round(val);
+    svg.appendChild(t);
+  }
+
+  const stepX = labels.length > 1 ? pw/(labels.length-1) : pw;
+  function xPos(i){ return margin.left + i*stepX; }
+  function yPos(v){ return margin.top + ph - ((v-min)/range)*ph; }
+
+  const labelEvery = Math.max(1, Math.ceil(labels.length / 9));
+  labels.forEach((label, i)=>{
+    if(i % labelEvery !== 0 && i !== labels.length-1) return;
+    const t = svgNode('text', {x:xPos(i), y:h-margin.bottom+16, 'text-anchor':'middle', 'font-size':10, fill:css('--text-muted')});
+    t.textContent = label;
+    svg.appendChild(t);
+  });
+
+  series.forEach(s=>{
+    const pts = s.data.map((v,i)=>({v,i})).filter(p=>p.v!==null && p.v!==undefined);
+    if(pts.length===0) return;
+    if(s.area){
+      let d = `M ${xPos(pts[0].i)} ${yPos(pts[0].v)}`;
+      pts.forEach((p,k)=>{ if(k>0) d+= ` L ${xPos(p.i)} ${yPos(p.v)}`; });
+      d += ` L ${xPos(pts[pts.length-1].i)} ${yPos(min)} L ${xPos(pts[0].i)} ${yPos(min)} Z`;
+      svg.appendChild(svgNode('path', {d, fill:s.color, opacity:0.14}));
+    }
+    let d = `M ${xPos(pts[0].i)} ${yPos(pts[0].v)}`;
+    pts.forEach((p,k)=>{ if(k>0) d+= ` L ${xPos(p.i)} ${yPos(p.v)}`; });
+    const pathAttrs = {d, fill:'none', stroke:s.color, 'stroke-width':2, 'stroke-linejoin':'round', 'stroke-linecap':'round'};
+    if(s.dash) pathAttrs['stroke-dasharray'] = s.dash.join(',');
+    svg.appendChild(svgNode('path', pathAttrs));
+
+    if(s.points !== false){
+      pts.forEach(p=>{
+        const c = svgNode('circle', {cx:xPos(p.i), cy:yPos(p.v), r:3, fill:s.color, style:'cursor:pointer'});
+        c.addEventListener('mousemove', e=>showTooltip(e, `<b>${labels[p.i]}</b><br>${s.name}: ${yFormat?yFormat(p.v):fmtNum(p.v)}`));
+        c.addEventListener('mouseleave', hideTooltip);
+        svg.appendChild(c);
+      });
+    }
+  });
+
+  svg.appendChild(svgNode('line', {x1:margin.left, x2:w-margin.right, y1:margin.top+ph, y2:margin.top+ph, stroke:css('--baseline'), 'stroke-width':1}));
+  el.appendChild(svg);
+
+  const legendSeries = series.filter(s=>s.legend !== false);
+  if(legendSeries.length > 1){
+    renderLegend(el, legendSeries.map(s=>({label:s.name, color:s.color, type:s.dash?'dash':'line'})));
+  }
+}
+
+function drawDonut(id, {labels, data, colors, onSelect, selected}){
+  const {el, w, h} = measure(id);
+  el.innerHTML = '';
+  const size = Math.min(w, h);
+  const cx = w/2, cy = h/2;
+  const strokeW = size*0.16;
+  const r = size/2 - strokeW/2 - 4;
+  const circumference = 2*Math.PI*r;
+  const total = data.reduce((a,b)=>a+b,0) || 1;
+  const svg = svgNode('svg', {width:w, height:h, viewBox:`0 0 ${w} ${h}`});
+
+  svg.appendChild(svgNode('circle', {cx, cy, r, fill:'none', stroke:css('--grid'), 'stroke-width':strokeW}));
+
+  let acc = 0;
+  data.forEach((val, i)=>{
+    const frac = val/total;
+    const dash = frac*circumference;
+    const isSelected = onSelect && selected===labels[i];
+    const circle = svgNode('circle', {
+      cx, cy, r, fill:'none', stroke:colors[i], 'stroke-width':isSelected?strokeW*1.12:strokeW,
+      'stroke-dasharray': `${dash} ${circumference-dash}`,
+      'stroke-dashoffset': -acc,
+      transform: `rotate(-90 ${cx} ${cy})`,
+    });
+    circle.setAttribute('class', 'mark-selectable');
+    circle.addEventListener('mousemove', e=>showTooltip(e, `<b>${labels[i]}</b><br>${fmtInt(val)} (${fmtPct(frac,1)})`));
+    circle.addEventListener('mouseleave', hideTooltip);
+    circle.addEventListener('click', ()=>{ if(onSelect) onSelect(labels[i]); });
+    svg.appendChild(circle);
+    acc += dash;
+  });
+
+  const centerVal = svgNode('text', {x:cx, y:cy-4, 'text-anchor':'middle', 'font-size':22, 'font-weight':700, fill:css('--text-primary')});
+  centerVal.textContent = fmtInt(total);
+  svg.appendChild(centerVal);
+  const centerLabel = svgNode('text', {x:cx, y:cy+16, 'text-anchor':'middle', 'font-size':10.5, fill:css('--text-muted')});
+  centerLabel.textContent = 'dossiers';
+  svg.appendChild(centerLabel);
+
+  el.appendChild(svg);
+  renderLegend(el, labels.map((l,i)=>({label:l, color:colors[i], type:'sw'})));
+}
+
+function renderLegend(container, items){
+  const wrap = document.createElement('div');
+  wrap.className = 'svg-legend';
+  wrap.innerHTML = items.map(it=>{
+    const swClass = it.type === 'dash' ? 'sw dash' : (it.type === 'line' ? 'sw line' : 'sw');
+    const style = it.type === 'dash' ? `border-color:${it.color}` : `background:${it.color}`;
+    return `<div class="li"><span class="${swClass}" style="${style}"></span>${it.label}</div>`;
+  }).join('');
+  container.appendChild(wrap);
+}
+
+/* ============================================================
+   FILTER BAR (RPL + Zone selects, export-all button)
+   ============================================================ */
+function buildFilterBar(){
+  const selRpl = document.getElementById('select-rpl');
+  selRpl.innerHTML = DATA.meta.perimetres.map(p=>`<option value="${p.key}">${p.label}</option>`).join('');
+  selRpl.value = filter.rpl;
+  selRpl.onchange = ()=>{ filter.rpl = selRpl.value; resetSelections(); render(); };
+
+  const selZone = document.getElementById('select-zone');
+  selZone.innerHTML = `<option value="all">Toutes zones</option>` + DATA.meta.zones.map(z=>`<option value="${z}">${z}</option>`).join('');
+  selZone.value = filter.zone;
+  selZone.onchange = ()=>{ filter.zone = selZone.value; resetSelections(); render(); };
+
+  document.getElementById('btn-export-all').onclick = ()=>{
+    const list = filteredDossiers();
+    const headers = ['dossier','client','activite','zone','responsable','date_ouverture','date_echeance','statut','date_cloture','jours_ecoules','tranche','en_retard','jours_retard','num_commande','sans_commande'];
+    const labels = ['N° Dossier','Client','RPL','Zone','Responsable','Date ouverture','Date échéance','Statut','Date clôture','Jours écoulés','Tranche','En retard','Jours de retard','N° Commande','Sans commande client'];
+    downloadCSV('dossiers_filtres.csv', toCSV(list, headers, labels));
+  };
+}
+
+/* ============================================================
+   KPI / QUALITÉ
+   ============================================================ */
+function kpiCard({label, value, sub, status, primary}){
+  const barClass = status ? ('bar-'+status) : 'bar-neutral';
+  const valClass = status ? ('status-'+status) : '';
+  return `<div class="kpi-card ${primary?'primary':''}">
+    <div class="accent-bar ${barClass}"></div>
+    <div class="label">${label}</div>
+    <div class="value ${valClass}">${value}</div>
+    ${sub? `<div class="sub">${sub}</div>`:''}
+  </div>`;
+}
+
+function renderKpis(list, weekly){
+  const k = computeKpis(list);
+  const lateStatus = statusForHigh(k.pct, 0.30, 0.60);
+
+  document.getElementById('kpi-primary').innerHTML = [
+    kpiCard({label:'Stock global (dossiers ouverts)', value:fmtInt(k.stock), primary:true}),
+    kpiCard({label:'Dossiers en retard', value:fmtInt(k.enRetardStock), sub:'Parmi le stock ouvert', status:lateStatus, primary:true}),
+    kpiCard({label:'Sans commande client', value:fmtInt(k.sansCommande), sub:'Tous statuts — cf. détail ci-dessous', status: k.sansCommande>0?'warning':'good', primary:true}),
+    kpiCard({label:'% en retard / stock global', value:fmtPct(k.pct), status:lateStatus, primary:true}),
+  ].join('');
+
+  const respectStatus = statusForRate(k.tauxRespect, DATA.meta.objectif_respect, DATA.meta.marge_tolerance_respect);
+  const horsDelaiPct = k.stock ? k.horsDelai/k.stock : 0;
+  const horsDelaiStatus = statusForHigh(horsDelaiPct, DATA.meta.objectif_hors_delai, DATA.meta.seuil_alerte_hors_delai);
+  const lastWeek = weekly[weekly.length-1];
+
+  document.getElementById('kpi-secondary').innerHTML = [
+    kpiCard({label:'Taux de respect des délais', value:fmtPct(k.tauxRespect), sub:`Objectif : ${fmtPct(DATA.meta.objectif_respect)}`, status:respectStatus}),
+    kpiCard({label:'Sorties cette semaine', value:fmtInt(lastWeek.sortants), sub:`Semaine ${lastWeek.semaine} (dernière disponible)`}),
+    kpiCard({label:'Délai moyen de traitement', value:k.delaiMoyen===null?'—':fmtNum(k.delaiMoyen,0)+' j', sub:'Dossiers clôturés'}),
+    kpiCard({label:'Ancienneté moy. du stock', value:k.ancienneteMoy===null?'—':fmtNum(k.ancienneteMoy,0)+' j', sub:'Dossiers encore ouverts'}),
+    kpiCard({label:'Dossiers critiques', value:fmtInt(k.critiques), sub:'120+ j ET en retard', status: k.critiques>0 ? 'critical':'good'}),
+    kpiCard({label:'Dossiers hors délai', value:fmtInt(k.horsDelai), sub:'Stock avec > 120 j d\'ancienneté', status:horsDelaiStatus}),
+  ].join('');
+}
+
+function renderQuality(list){
+  const sansCommande = list.filter(d=>d.sans_commande==='Oui');
+  const horsDelai = list.filter(d=>d.statut==='Ouvert' && d.jours_ecoules>120);
+
+  document.getElementById('quality-badges').innerHTML = `
+    <div class="quality-badge" id="badge-commande">
+      <div><div class="qb-label">Dossiers sans commande client</div><div class="toggle-hint">Cliquer pour voir le détail</div></div>
+      <div class="qb-value ${sansCommande.length>0?'warn':''}">${fmtInt(sansCommande.length)}</div>
+    </div>
+    <div class="quality-badge" id="badge-hors-delai">
+      <div><div class="qb-label">Dossiers hors délai (&gt;120j)</div><div class="toggle-hint">Cliquer pour voir le détail</div></div>
+      <div class="qb-value ${horsDelai.length>0?'warn':''}">${fmtInt(horsDelai.length)}</div>
+    </div>`;
+
+  function refreshDetail(){
+    if(anomalyOpen==='commande'){
+      renderDrilldown('anomaly-detail','export-anomaly', sansCommande, 'dossiers_sans_commande', 'Dossiers sans commande client', null);
+    } else if(anomalyOpen==='hors'){
+      renderDrilldown('anomaly-detail','export-anomaly', horsDelai, 'dossiers_hors_delai', 'Dossiers hors délai (>120j)', null);
+    } else {
+      renderDrilldown('anomaly-detail','export-anomaly', null, '', '', null);
+    }
+  }
+
+  document.getElementById('badge-commande').onclick = ()=>{ anomalyOpen = (anomalyOpen==='commande')?null:'commande'; refreshDetail(); };
+  document.getElementById('badge-hors-delai').onclick = ()=>{ anomalyOpen = (anomalyOpen==='hors')?null:'hors'; refreshDetail(); };
+  refreshDetail();
+
+  return {sansCommande, horsDelai};
+}
+
+/* ============================================================
+   SECTIONS
+   ============================================================ */
+function renderTranche(list){
+  const rows = computeTranche(list);
+  const shortLabels = rows.map(r=>r.tranche.replace(' jours','j'));
+  drawBarChart('chart-tranche', {
+    labels: shortLabels, series:[{name:'Dossiers', data:rows.map(r=>r.nombre), color:css('--blue')}],
+    onSelect: (label)=>{
+      const idx = shortLabels.indexOf(label);
+      const tr = idx>=0 ? rows[idx].tranche : null;
+      selectedTranche = (selectedTranche===tr) ? null : tr;
+      renderTrancheDrilldown(list);
+    },
+    selected: selectedTranche ? selectedTranche.replace(' jours','j') : null
+  });
+  document.getElementById('table-tranche').innerHTML = rows.map(r=>
+    `<tr><td>${r.tranche}</td><td class="num">${fmtInt(r.nombre)}</td><td class="num">${fmtPct(r.pct,1)}</td></tr>`).join('');
+  renderTrancheDrilldown(list);
+}
+function renderTrancheDrilldown(list){
+  const sel = selectedTranche;
+  const filtered = sel ? list.filter(d=>d.tranche===sel) : null;
+  renderDrilldown('drilldown-tranche','export-tranche', filtered,
+    'dossiers_tranche'+(sel?'_'+sel.replace(/[^0-9a-zA-Z]+/g,'_'):''),
+    sel ? `Tranche : ${sel}` : '', null);
+}
+
+function renderRetard(list){
+  const r = computeRetard(list);
+  const total = r.dans_delais + r.en_retard || 1;
+  drawDonut('chart-retard', {
+    labels:['Dans les délais','En retard'], data:[r.dans_delais, r.en_retard], colors:[css('--good'), css('--critical')],
+    onSelect: (label)=>{ selectedRetard = (selectedRetard===label)?null:label; renderRetardDrilldown(list); },
+    selected: selectedRetard
+  });
+  document.getElementById('table-retard').innerHTML = `
+    <tr><td>Dans les délais</td><td class="num">${fmtInt(r.dans_delais)}</td><td class="num">${fmtPct(r.dans_delais/total,1)}</td></tr>
+    <tr><td>En retard</td><td class="num">${fmtInt(r.en_retard)}</td><td class="num">${fmtPct(r.en_retard/total,1)}</td></tr>`;
+  renderRetardDrilldown(list);
+}
+function renderRetardDrilldown(list){
+  const sel = selectedRetard;
+  let filtered = null;
+  if(sel==='Dans les délais') filtered = list.filter(d=>d.en_retard==='Non');
+  else if(sel==='En retard') filtered = list.filter(d=>d.en_retard==='Oui');
+  renderDrilldown('drilldown-retard','export-retard', filtered,
+    'retard_delais'+(sel? (sel==='En retard'?'_en_retard':'_dans_delais') : ''),
+    sel || '', null);
+}
+
+function renderParRpl(){
+  const list = zoneOnlyDossiers();
+  const rows = computeParRpl(list);
+  drawBarChart('chart-par-rpl', {
+    labels: rows.map(r=>r.activite), series:[{name:'Dossiers', data:rows.map(r=>r.nombre), color:css('--aqua')}],
+    onSelect: (label)=>{ selectedRpl = (selectedRpl===label)?null:label; renderParRplDrilldown(list); },
+    selected: selectedRpl
+  });
+  document.getElementById('table-par-rpl').innerHTML = rows.map(r=>
+    `<tr><td class="strong">${r.activite}</td><td class="num">${fmtInt(r.nombre)}</td></tr>`).join('');
+  renderParRplDrilldown(list);
+}
+function renderParRplDrilldown(list){
+  const sel = selectedRpl;
+  const filtered = sel ? list.filter(d=>d.activite===sel) : null;
+  renderDrilldown('drilldown-par-rpl','export-parrpl', filtered,
+    'dossiers_rpl'+(sel?'_'+sel.replace(/[^0-9a-zA-Z]+/g,'_'):''),
+    sel ? `RPL : ${sel}` : '', null);
+}
+
+function renderCroisement(){
+  const section = document.getElementById('croisement-section');
+  if(filter.rpl !== 'all'){ section.style.display='none'; return; }
+  section.style.display='';
+  const list = zoneOnlyDossiers();
+  const rows = computeCroisement(list);
+  const maxVal = Math.max(...rows.flatMap(r=>Object.values(r.valeurs)), 1);
+  function cellStyle(v){ return `background: rgba(57,135,229,${(0.15+0.65*(v/maxVal)).toFixed(2)});`; }
+  let html = `<thead><tr><th>RPL</th>${TRANCHES.map(tr=>`<th class="num">${tr}</th>`).join('')}</tr></thead><tbody>`;
+  rows.forEach(r=>{
+    html += `<tr><td class="strong">${r.activite}</td>${TRANCHES.map(tr=>{
+      const isSel = !!(selectedCroisement && selectedCroisement.activite===r.activite && selectedCroisement.tranche===tr);
+      return `<td class="heat-cell mark-selectable${isSel?' mark-selected':''}" style="${cellStyle(r.valeurs[tr])}" data-activite="${r.activite}" data-tranche="${tr}">${r.valeurs[tr]}</td>`;
+    }).join('')}</tr>`;
+  });
+  html += '</tbody>';
+  document.getElementById('table-croisement').innerHTML = html;
+  document.querySelectorAll('#table-croisement td.heat-cell').forEach(td=>{
+    td.addEventListener('click', ()=>{
+      const activite = td.dataset.activite, tranche = td.dataset.tranche;
+      if(selectedCroisement && selectedCroisement.activite===activite && selectedCroisement.tranche===tranche) selectedCroisement = null;
+      else selectedCroisement = {activite, tranche};
+      renderCroisement();
+    });
+  });
+  renderCroisementDrilldown(list);
+}
+function renderCroisementDrilldown(list){
+  const sel = selectedCroisement;
+  const filtered = sel ? list.filter(d=>d.activite===sel.activite && d.tranche===sel.tranche) : null;
+  renderDrilldown('drilldown-croisement','export-croisement', filtered,
+    'croisement'+(sel?'_'+sel.activite.replace(/[^0-9a-zA-Z]+/g,'_')+'_'+sel.tranche.replace(/[^0-9a-zA-Z]+/g,'_'):''),
+    sel ? `${sel.activite} × ${sel.tranche}` : '', null);
+}
+
+function renderTendance(list){
+  const weekly = computeWeekly(list);
+  const labels = weekly.map(r=>r.semaine);
+
+  drawLineChart('chart-hors-delai', {
+    labels, yFormat: v=>Math.round(v)+'%', yMin:0, yMax:100,
+    series:[
+      { name:'% réel hors délai (>120j)', data: weekly.map(r=>r.pct_hors_delai===null?null:r.pct_hors_delai*100), color:css('--good') },
+      { name:'Objectif', data: weekly.map(()=>DATA.meta.objectif_hors_delai*100), color:css('--blue'), dash:[6,4], points:false },
+    ]
+  });
+  drawLineChart('chart-stock-cumule', { labels, series:[{ name:'Stock cumulé', data: weekly.map(r=>r.stock_cumule), color:css('--violet'), area:true, legend:false }] });
+  drawBarChart('chart-flux', { labels, series:[
+    { name:'Entrants', data: weekly.map(r=>r.entrants), color:css('--orange') },
+    { name:'Sortants', data: weekly.map(r=>r.sortants), color:css('--aqua') },
+  ]});
+
+  const selSemaine = document.getElementById('select-semaine');
+  selSemaine.innerHTML = `<option value="">— Choisir —</option>` + weekly.map(r=>`<option value="${r.semaine}">${r.semaine}</option>`).join('');
+  selSemaine.value = selectedWeek;
+  selSemaine.onchange = ()=>{ selectedWeek = selSemaine.value; renderWeekDrilldown(list, weekly); };
+  renderWeekDrilldown(list, weekly);
+
+  return weekly;
+}
+
+function renderWeekDrilldown(list, weekly){
+  const focus = document.getElementById('focus-semaine');
+  if(!selectedWeek){
+    focus.classList.remove('show'); focus.innerHTML='';
+    renderDrilldown('drilldown-semaine','export-semaine', null, '', '', null);
+    return;
+  }
+  const row = weekly.find(r=>r.semaine===selectedWeek);
+  const weekDef = DATA.weeks.find(w=>w.label===selectedWeek);
+  const cutoff = addDaysISO(weekDef.start, 7);
+
+  focus.classList.add('show');
+  focus.innerHTML = `
+    <span><b>${row.semaine}</b></span>
+    <span>Entrants : <b>${fmtInt(row.entrants)}</b></span>
+    <span>Sortants : <b>${fmtInt(row.sortants)}</b></span>
+    <span>Solde : <b>${row.solde>=0?'+':''}${fmtInt(row.solde)}</b></span>
+    <span>Stock cumulé : <b>${fmtInt(row.stock_cumule)}</b></span>
+    <span>% hors délai : <b>${fmtPct(row.pct_hors_delai)}</b></span>`;
+
+  const entrants = list.filter(d=>d.date_ouverture>=weekDef.start && d.date_ouverture<cutoff);
+  const sortants = list.filter(d=>d.date_cloture && d.date_cloture>=weekDef.start && d.date_cloture<cutoff);
+  const byDossier = new Map();
+  entrants.forEach(d=> byDossier.set(d.dossier, Object.assign({}, d, {mouvement:'Entrant'})));
+  sortants.forEach(d=>{
+    if(byDossier.has(d.dossier)) byDossier.get(d.dossier).mouvement = 'Entrant + Sortant';
+    else byDossier.set(d.dossier, Object.assign({}, d, {mouvement:'Sortant'}));
+  });
+  const combined = [...byDossier.values()];
+  renderDrilldown('drilldown-semaine','export-semaine', combined, 'detail_semaine_'+selectedWeek,
+    `Semaine ${selectedWeek}`, {key:'mouvement', label:'Mouvement', fn:d=>d.mouvement});
+}
+
+function renderPerformance(list){
+  const rows = computePerformance(list);
+  drawHBarChart('chart-perf', {
+    labels: rows.map(r=>r.responsable), series:[
+      { name:'Dossiers en cours', data: rows.map(r=>r.dossiers), color:css('--blue') },
+      { name:'Dont en retard', data: rows.map(r=>r.en_retard), color:css('--critical') },
+    ],
+    onSelect: (label)=>{ selectedResponsable = (selectedResponsable===label)?null:label; renderPerformanceDrilldown(list); },
+    selected: selectedResponsable
+  });
+  renderPerformanceDrilldown(list);
+}
+function renderPerformanceDrilldown(list){
+  const sel = selectedResponsable;
+  const filtered = sel ? list.filter(d=>d.responsable===sel && d.statut==='Ouvert') : null;
+  renderDrilldown('drilldown-perf','export-perf', filtered,
+    'performance'+(sel?'_'+sel.replace(/[^0-9a-zA-Z]+/g,'_'):''),
+    sel ? `Responsable : ${sel}` : '', null);
+}
+
+/* ============================================================
+   MASTER RENDER
+   ============================================================ */
+function render(){
+  const list = filteredDossiers();
+  document.getElementById('tab-sub').textContent =
+    (filter.rpl==='all' ? 'Toutes les RPL' : filter.rpl) + ' · ' + (filter.zone==='all' ? 'Toutes zones' : 'Zone '+filter.zone);
+
+  const weekly = renderTendance(list);
+  renderKpis(list, weekly);
+  renderQuality(list);
+  renderTranche(list);
+  renderRetard(list);
+  renderParRpl();
+  renderCroisement();
+  renderPerformance(list);
+}
+
+function boot(){
+  document.getElementById('foot-date').textContent = new Date(DATA.meta.generated).toLocaleDateString('fr-FR');
+  buildFilterBar();
+  render();
+}
+loadData();
+
+let resizeTimer;
+window.addEventListener('resize', ()=>{ clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 200); });
+</script>
+</body>
+</html>
