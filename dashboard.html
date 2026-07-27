@@ -102,6 +102,21 @@
   }
   .filterbar .spacer{flex:1;}
 
+  .domainbar{
+    display:flex;align-items:center;gap:12px;margin-bottom:12px;
+  }
+  .domainbar-label{
+    font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);
+  }
+  .domain-toggle{display:flex;gap:8px;}
+  .domain-chip{
+    background:var(--surface-1);border:1px solid var(--border);color:var(--text-secondary);
+    border-radius:20px;padding:6px 14px;font-size:12.5px;font-weight:600;cursor:pointer;
+    font-family:inherit;transition:border-color .12s,color .12s,background .12s;
+  }
+  .domain-chip:hover{border-color:rgba(255,255,255,0.25);color:var(--text-primary);}
+  .domain-chip.active{background:rgba(57,135,229,0.16);border-color:var(--blue);color:var(--text-primary);}
+
   .section-title{
     font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);
     margin:30px 0 12px 0;display:flex;align-items:center;gap:10px;
@@ -244,6 +259,11 @@
 
     <div id="data-status" class="data-status">Chargement des données…</div>
 
+    <div class="domainbar" id="domainbar">
+      <span class="domainbar-label">Domaine</span>
+      <div class="domain-toggle" id="domain-toggle"></div>
+    </div>
+
     <div class="filterbar">
       <div class="field">
         <label for="select-rpl">RPL</label>
@@ -292,6 +312,17 @@
         </table>
         <div class="drilldown" id="drilldown-retard"></div>
       </div>
+    </div>
+
+    <div class="panel">
+      <h3>Répartition par état <button class="btn-ghost" id="export-etat" disabled>Exporter la sélection</button></h3>
+      <div class="panel-sub" id="etat-panel-sub">Cliquez une barre pour voir et exporter les dossiers de cet état</div>
+      <div class="chart-box" id="chart-etat-box"><div class="svg-chart" id="chart-etat"></div></div>
+      <table class="tabular" style="margin-top:10px;">
+        <thead><tr><th>État</th><th class="num">Nombre</th><th class="num">%</th></tr></thead>
+        <tbody id="table-etat"></tbody>
+      </table>
+      <div class="drilldown" id="drilldown-etat"></div>
     </div>
 
     <div class="section-title">Nombre de dossiers par RPL</div>
@@ -401,12 +432,18 @@ async function loadData(){
   }
 }
 const TRANCHES = ['0-28 jours','29-60 jours','61-90 jours','91-120 jours','120+ jours'];
+const DOMAINS = [
+  { key:'GDP', label:'GDP' },
+  { key:'SPI_MARO', label:'SPI_MARO' },
+];
 
 let filter = { rpl: 'all', zone: 'all' };
+let selectedDomains = new Set(DOMAINS.map(d=>d.key)); // les deux domaines actifs par defaut
 let selectedWeek = '';
 let anomalyOpen = null;
 let selectedTranche = null;
 let selectedRetard = null;
+let selectedEtat = null;
 let selectedRpl = null;
 let selectedCroisement = null;
 let selectedResponsable = null;
@@ -416,9 +453,51 @@ function resetSelections(){
   anomalyOpen = null;
   selectedTranche = null;
   selectedRetard = null;
+  selectedEtat = null;
   selectedRpl = null;
   selectedCroisement = null;
   selectedResponsable = null;
+}
+
+/* ============================================================
+   DOMAINES (GDP / SPI_MARO) : chaque domaine a son propre schema
+   de dossiers normalise par build_data.py vers les memes champs
+   (dossier, activite, zone, responsable, dates, statut...), donc
+   tout le reste de l'app (KPI, graphiques, exports) fonctionne
+   sans savoir de quel domaine vient un dossier.
+   ============================================================ */
+function activeDomains(){
+  return DOMAINS.filter(d=>selectedDomains.has(d.key));
+}
+function domainDossiers(){
+  const out = [];
+  activeDomains().forEach(d=>{
+    const dom = DATA.domains[d.key];
+    if(!dom) return;
+    dom.dossiers.forEach(x=> out.push(Object.assign({_domain:d.key}, x)));
+  });
+  return out;
+}
+function domainMetaList(getter){
+  const seen = new Map();
+  activeDomains().forEach(d=>{
+    const dom = DATA.domains[d.key];
+    if(!dom) return;
+    getter(dom.meta).forEach(item=>{
+      const key = typeof item === 'string' ? item : item.key;
+      if(!seen.has(key)) seen.set(key, item);
+    });
+  });
+  return [...seen.values()];
+}
+function mergedWeeks(){
+  const seen = new Map();
+  activeDomains().forEach(d=>{
+    const dom = DATA.domains[d.key];
+    if(!dom) return;
+    (dom.weeks||[]).forEach(w=> seen.set(w.start, w));
+  });
+  return [...seen.values()].sort((a,b)=> a.start<b.start?-1:a.start>b.start?1:0);
 }
 
 function css(varName){ return getComputedStyle(document.documentElement).getPropertyValue(varName).trim(); }
@@ -457,13 +536,13 @@ function daysDiff(isoA, isoB){
    FILTERING
    ============================================================ */
 function filteredDossiers(){
-  return DATA.dossiers.filter(d =>
+  return domainDossiers().filter(d =>
     (filter.rpl==='all' || d.activite===filter.rpl) &&
     (filter.zone==='all' || d.zone===filter.zone)
   );
 }
 function zoneOnlyDossiers(){
-  return DATA.dossiers.filter(d => (filter.zone==='all' || d.zone===filter.zone));
+  return domainDossiers().filter(d => (filter.zone==='all' || d.zone===filter.zone));
 }
 
 /* ============================================================
@@ -508,7 +587,7 @@ function computeCroisement(list){
 }
 
 function computeParRpl(list){
-  const rpls = [...new Set(DATA.dossiers.map(d=>d.activite))].sort();
+  const rpls = [...new Set(domainDossiers().map(d=>d.activite))].filter(Boolean).sort();
   let rows = rpls.map(rpl=>({activite:rpl, nombre:list.filter(d=>d.activite===rpl).length}));
   rows.sort((a,b)=>b.nombre-a.nombre);
   return rows;
@@ -530,7 +609,7 @@ function computePerformance(list){
 
 function computeWeekly(list){
   let stockCum = 0;
-  return DATA.weeks.map(w=>{
+  return mergedWeeks().map(w=>{
     const cutoff = addDaysISO(w.start,7);
     const entrants = list.filter(d=>d.date_ouverture>=w.start && d.date_ouverture<cutoff).length;
     const sortants = list.filter(d=>d.date_cloture && d.date_cloture>=w.start && d.date_cloture<cutoff).length;
@@ -570,8 +649,8 @@ function downloadCSV(filename, csv){
    ever exports the exact list of dossiers behind the current
    selection, never an aggregate/summary table.
    ============================================================ */
-const DOSSIER_HEADERS = ['dossier','client','activite','zone','responsable','date_ouverture','date_echeance','statut','date_cloture','jours_ecoules','tranche','en_retard','jours_retard','num_commande','sans_commande'];
-const DOSSIER_LABELS  = ['N° Dossier','Client','RPL','Zone','Responsable','Date ouverture','Date échéance','Statut','Date clôture','Jours écoulés','Tranche','En retard','Jours de retard','N° Commande','Sans commande client'];
+const DOSSIER_HEADERS = ['_domain','dossier','client','activite','zone','responsable','date_ouverture','date_echeance','statut','type_etat','date_cloture','jours_ecoules','tranche','en_retard','jours_retard','num_commande','sans_commande'];
+const DOSSIER_LABELS  = ['Domaine','N° Dossier','Client','RPL','Zone','Responsable','Date ouverture','Date échéance','Statut','État','Date clôture','Jours écoulés','Tranche','En retard','Jours de retard','N° Commande','Sans commande client'];
 
 function renderDrilldown(containerId, exportBtnId, list, filenameBase, title, extraCol){
   const box = document.getElementById(containerId);
@@ -606,9 +685,10 @@ function renderDrilldown(containerId, exportBtnId, list, filenameBase, title, ex
     <div class="table-wrap"><table class="tabular">
       <thead><tr>${colLabels.map(l=>`<th>${l}</th>`).join('')}</tr></thead>
       <tbody>${rows.map(r=>`<tr>
-        <td class="strong">${r.dossier}</td><td>${r.client}</td><td>${r.activite}</td><td>${r.zone}</td><td>${r.responsable||'—'}</td>
+        <td>${r._domain||'—'}</td><td class="strong">${r.dossier}</td><td>${r.client||'—'}</td><td>${r.activite||'—'}</td><td>${r.zone||'—'}</td><td>${r.responsable||'—'}</td>
         <td>${r.date_ouverture}</td><td>${r.date_echeance}</td>
         <td><span class="pill ${r.statut==='Ouvert'?'ouvert':'cloture'}">${r.statut}</span></td>
+        <td>${r.type_etat||'—'}</td>
         <td>${r.date_cloture||'—'}</td><td class="num">${r.jours_ecoules}</td><td>${r.tranche}</td>
         <td>${r.en_retard}</td><td class="num">${r.jours_retard}</td><td>${r.num_commande||'—'}</td><td>${r.sans_commande}</td>
         ${extraCol? `<td>${r[extraCol.key]}</td>` : ''}
@@ -727,7 +807,7 @@ function drawHBarChart(id, {labels, series, onSelect, selected}){
   const groupPad = bandH * 0.18;
   const barGap = 3;
   const usableH = bandH - groupPad*2;
-  const barH = (usableH - barGap*(series.length-1)) / series.length;
+  const barH = Math.max((usableH - barGap*(series.length-1)) / series.length, 0.5);
 
   labels.forEach((label, li)=>{
     const t = svgNode('text', {x:margin.left-8, y:margin.top+li*bandH+bandH/2+4, 'text-anchor':'end', 'font-size':11, fill:css('--text-secondary')});
@@ -875,24 +955,54 @@ function renderLegend(container, items){
 }
 
 /* ============================================================
-   FILTER BAR (RPL + Zone selects, export-all button)
+   DOMAIN TOGGLE (GDP / SPI_MARO, sélection multiple) — c'est le
+   tout premier filtre : il redéfinit les options RPL/Zone en
+   dessous, donc on reconstruit toute la filterbar quand il change.
+   ============================================================ */
+function buildDomainToggle(){
+  const box = document.getElementById('domain-toggle');
+  box.innerHTML = DOMAINS.map(d=>
+    `<button type="button" class="domain-chip${selectedDomains.has(d.key)?' active':''}" data-domain="${d.key}">${d.label}</button>`
+  ).join('');
+  box.querySelectorAll('.domain-chip').forEach(btn=>{
+    btn.onclick = ()=>{
+      const key = btn.dataset.domain;
+      if(selectedDomains.has(key)){
+        if(selectedDomains.size===1) return; // au moins un domaine actif
+        selectedDomains.delete(key);
+      } else {
+        selectedDomains.add(key);
+      }
+      filter.rpl = 'all'; filter.zone = 'all';
+      resetSelections();
+      buildDomainToggle();
+      buildFilterBar();
+      render();
+    };
+  });
+}
+
+/* ============================================================
+   FILTER BAR (RPL + Zone selects, export-all button) — les options
+   dépendent du/des domaine(s) actif(s) dans selectedDomains.
    ============================================================ */
 function buildFilterBar(){
+  const perimetres = domainMetaList(m=>m.perimetres).filter(p=>p.key!=='all');
+  const zones = domainMetaList(m=>m.zones).sort();
+
   const selRpl = document.getElementById('select-rpl');
-  selRpl.innerHTML = DATA.meta.perimetres.map(p=>`<option value="${p.key}">${p.label}</option>`).join('');
+  selRpl.innerHTML = `<option value="all">Toutes les RPL</option>` + perimetres.map(p=>`<option value="${p.key}">${p.label}</option>`).join('');
   selRpl.value = filter.rpl;
   selRpl.onchange = ()=>{ filter.rpl = selRpl.value; resetSelections(); render(); };
 
   const selZone = document.getElementById('select-zone');
-  selZone.innerHTML = `<option value="all">Toutes zones</option>` + DATA.meta.zones.map(z=>`<option value="${z}">${z}</option>`).join('');
+  selZone.innerHTML = `<option value="all">Toutes zones</option>` + zones.map(z=>`<option value="${z}">${z}</option>`).join('');
   selZone.value = filter.zone;
   selZone.onchange = ()=>{ filter.zone = selZone.value; resetSelections(); render(); };
 
   document.getElementById('btn-export-all').onclick = ()=>{
     const list = filteredDossiers();
-    const headers = ['dossier','client','activite','zone','responsable','date_ouverture','date_echeance','statut','date_cloture','jours_ecoules','tranche','en_retard','jours_retard','num_commande','sans_commande'];
-    const labels = ['N° Dossier','Client','RPL','Zone','Responsable','Date ouverture','Date échéance','Statut','Date clôture','Jours écoulés','Tranche','En retard','Jours de retard','N° Commande','Sans commande client'];
-    downloadCSV('dossiers_filtres.csv', toCSV(list, headers, labels));
+    downloadCSV('dossiers_filtres.csv', toCSV(list, DOSSIER_HEADERS, DOSSIER_LABELS));
   };
 }
 
@@ -1018,6 +1128,48 @@ function renderRetardDrilldown(list){
     sel || '', null);
 }
 
+function computeEtat(list){
+  const total = list.length;
+  const counts = new Map();
+  list.forEach(d=>{
+    const k = d.type_etat || 'Non renseigné';
+    counts.set(k, (counts.get(k)||0)+1);
+  });
+  return [...counts.entries()]
+    .map(([etat,nombre])=>({etat, nombre, pct: total? nombre/total : 0}))
+    .sort((a,b)=>b.nombre-a.nombre);
+}
+
+function renderEtat(list){
+  const rows = computeEtat(list);
+  const box = document.getElementById('chart-etat-box');
+  box.classList.toggle('tall', rows.length > 4);
+
+  const domainLabel = activeDomains().length===1 ? activeDomains()[0].label : null;
+  document.getElementById('etat-panel-sub').textContent = domainLabel==='GDP'
+    ? "Type de POI (POI / OI / GAV) — cliquez une barre pour voir et exporter les dossiers de ce type"
+    : domainLabel==='SPI_MARO'
+      ? "Étape du suivi (étude → commande → travaux → contrôle → clôture) — cliquez une barre pour voir et exporter les dossiers de cette étape"
+      : "GDP : type de POI · SPI_MARO : étape du suivi — cliquez une barre pour voir et exporter les dossiers de cet état";
+
+  drawHBarChart('chart-etat', {
+    labels: rows.map(r=>r.etat),
+    series: [{name:'Dossiers', data: rows.map(r=>r.nombre), color: css('--violet')}],
+    onSelect: (label)=>{ selectedEtat = (selectedEtat===label)?null:label; renderEtatDrilldown(list); },
+    selected: selectedEtat
+  });
+  document.getElementById('table-etat').innerHTML = rows.map(r=>
+    `<tr><td>${r.etat}</td><td class="num">${fmtInt(r.nombre)}</td><td class="num">${fmtPct(r.pct,1)}</td></tr>`).join('');
+  renderEtatDrilldown(list);
+}
+function renderEtatDrilldown(list){
+  const sel = selectedEtat;
+  const filtered = sel ? list.filter(d=>(d.type_etat||'Non renseigné')===sel) : null;
+  renderDrilldown('drilldown-etat','export-etat', filtered,
+    'dossiers_etat'+(sel?'_'+sel.replace(/[^0-9a-zA-Z]+/g,'_'):''),
+    sel ? `État : ${sel}` : '', null);
+}
+
 function renderParRpl(){
   const list = zoneOnlyDossiers();
   const rows = computeParRpl(list);
@@ -1107,7 +1259,7 @@ function renderWeekDrilldown(list, weekly){
     return;
   }
   const row = weekly.find(r=>r.semaine===selectedWeek);
-  const weekDef = DATA.weeks.find(w=>w.label===selectedWeek);
+  const weekDef = mergedWeeks().find(w=>w.label===selectedWeek);
   const cutoff = addDaysISO(weekDef.start, 7);
 
   focus.classList.add('show');
@@ -1134,6 +1286,10 @@ function renderWeekDrilldown(list, weekly){
 
 function renderPerformance(list){
   const rows = computePerformance(list);
+  // Le nombre de responsables varie beaucoup selon le(s) domaine(s) actif(s)
+  // (une vingtaine pour GDP, jusqu'à une cinquantaine pour SPI_MARO) : on
+  // adapte la hauteur du graphique pour que chaque barre reste lisible.
+  document.getElementById('chart-perf').parentElement.style.height = Math.max(300, rows.length*26) + 'px';
   drawHBarChart('chart-perf', {
     labels: rows.map(r=>r.responsable), series:[
       { name:'Dossiers en cours', data: rows.map(r=>r.dossiers), color:css('--blue') },
@@ -1157,14 +1313,16 @@ function renderPerformanceDrilldown(list){
    ============================================================ */
 function render(){
   const list = filteredDossiers();
+  const domainLabel = activeDomains().map(d=>d.label).join(' + ');
   document.getElementById('tab-sub').textContent =
-    (filter.rpl==='all' ? 'Toutes les RPL' : filter.rpl) + ' · ' + (filter.zone==='all' ? 'Toutes zones' : 'Zone '+filter.zone);
+    domainLabel + ' · ' + (filter.rpl==='all' ? 'Toutes les RPL' : filter.rpl) + ' · ' + (filter.zone==='all' ? 'Toutes zones' : 'Zone '+filter.zone);
 
   const weekly = renderTendance(list);
   renderKpis(list, weekly);
   renderQuality(list);
   renderTranche(list);
   renderRetard(list);
+  renderEtat(list);
   renderParRpl();
   renderCroisement();
   renderPerformance(list);
@@ -1172,6 +1330,7 @@ function render(){
 
 function boot(){
   document.getElementById('foot-date').textContent = new Date(DATA.meta.generated).toLocaleDateString('fr-FR');
+  buildDomainToggle();
   buildFilterBar();
   render();
 }
